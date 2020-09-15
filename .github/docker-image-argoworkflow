@@ -1,0 +1,89 @@
+name: Digitaldots Docker Build
+on: 
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master, develop ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Notify slack build initiation
+      id: slack
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      uses: voxmedia/github-action-slack-notify-build@v1
+      with:
+        channel: build
+        status: STARTING build for ${{ github.sha }}
+        color: warning
+    - name: Microsoft Teams Deploy Card
+      uses: toko-bifrost/ms-teams-deploy-card@3.1.2
+      with:
+        webhook-uri: ${{ secrets.MSTEAMS_WEBHOOK }}     
+        github-token: ${{ github.token }}
+        environment: None
+        timezone: "Asia/Kolkata"
+        card-layout-start: compact 
+        card-layout-exit: complete 
+        show-on-start: true 
+        show-on-exit: true         
+        custom-facts: |
+          - name: Repository
+            value: ${{github.repository}}
+          - name: ImageTag
+            value: ${{ github.sha }}
+        enable-view-status-action: true 
+        enable-review-diffs-action: true 
+        view-status-action-text: "View Status"
+    - uses: actions/checkout@master
+    - name: Publish to Registry
+      id: publish-image
+      uses: elgohr/Publish-Docker-Github-Action@master
+      with:
+        name: ${{github.repository}}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: ${{ secrets.DOCKER_REGISTRY }}
+        tags: "${{ github.sha }}, latest"
+    - name: Notify Successful Build
+      if: success()
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      uses: voxmedia/github-action-slack-notify-build@v1
+      with:
+        message_id: ${{ steps.slack.outputs.message_id }}
+        channel: build
+        status: 'SUCCESS tag : ${{ github.sha }}, digest : ${{ steps.publish-image.outputs.digest }}'
+        color: good
+    - name: replace image tag
+      id: replace-tag
+      if: success()
+      uses: jacobtomlinson/gha-find-replace@master
+      with:
+        find: "IMAGE"
+        replace: "${{ github.sha }}"  # pattern to search for
+        include: "deploy/base/kustomization.yaml" # kustomization file location
+    - name: Print files impacted
+      run: echo "Files Replaced  ${{ steps.replace-tag.outputs.modifiedFiles }}"
+    - name: Commit to CICD repository
+      uses: drud/action-cross-commit@master
+      if: success()
+      with:
+        source-folder: deploy/base
+        destination-repository: https://${{ secrets.ops_username }}:${{ secrets.ops_usertoken }}@github.com/digitaldots/dd-ops
+        destination-folder: ./scrapers/base
+        destination-branch: master
+        git-user: ${{ secrets.ops_username }}
+        git-user-email: ${{ secrets.ops_useremail }}
+        excludes: README.md:.git
+    - name: Notify Build Failure
+      if: failure()
+      env:
+        SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      uses: voxmedia/github-action-slack-notify-build@v1
+      with:
+        message_id: ${{ steps.slack.outputs.message_id }}
+        channel: build
+        status: Build Failed for ${{ github.sha }}
+        color: danger

@@ -1,0 +1,13 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: scrapers
+spec:
+ rules:
+ - host: scrapers.enterprise.digitaldots.ai
+   http:
+     paths:
+     - path: /
+       backend:
+         serviceName: scrapers
+         servicePort: 6800

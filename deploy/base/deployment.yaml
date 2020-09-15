@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scrapers
+  labels:
+    app: scrapers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scrapers
+  template:
+    metadata:
+      labels:
+        app: scrapers
+    spec:
+      imagePullSecrets:
+      - name: nexus-reg-cred
+      containers:
+      - name: scrapers
+        image: nexus.digitaldots.ai/digitaldots/scrapers
+        imagePullPolicy: Always
+        envFrom:
+        - configMapRef:
+            name: scrapers-config
+        ports:
+        - name: scrapers
+          protocol: TCP
+          containerPort: 80
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/sh", "-c", "/code/entrypoint.sh"]
+

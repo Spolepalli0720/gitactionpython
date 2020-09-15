@@ -1,0 +1,70 @@
+name: develop
+on:
+  push:
+    branches:
+    - 'develop'
+  pull_request:
+    branches:
+    - 'develop'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # for notification to microsoft Teams
+      - name: BeverOps Build Notification
+        uses: toko-bifrost/ms-teams-deploy-card@3.1.2
+        with:
+          webhook-uri: ${{ secrets.MSTEAMS_WEBHOOK }}
+          github-token: ${{ github.token }}
+          environment: None
+          timezone: "Asia/Kolkata"
+          card-layout-start: compact
+          card-layout-exit: complete
+          show-on-start: true
+          show-on-exit: true
+          custom-facts: |
+            - name: Repository
+              value: ${{github.repository}}
+            - name: ImageTag
+              value: ${{ github.sha }}
+            - name: sonarqube url
+              value: https://sonar.bever.digitaldots.ai/
+          enable-view-status-action: true
+          enable-review-diffs-action: true
+          view-status-action-text: "View Status"
+
+      #checkout actions
+      - uses: actions/checkout@v2
+
+      # javasetup for maven goals
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+
+      # maven goals
+      - name: Build with Maven
+        run: mvn clean package -DskipTests #compile install package
+
+      #sonarqube static code analysis
+      - name: Setup sonarqube
+        uses: warchant/setup-sonar-scanner@v1
+      - name: Run sonarqube
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: sonar-scanner
+           -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+           -Dsonar.host.url=https://sonar.bever.digitaldots.ai/
+           -Dsonar.projectKey=store-api #sonar-scanner-action
+
+      # publish to registry with tag as sha and as another tag as latest
+      - name: Publish to Registry
+        id: publish-image
+        uses: elgohr/Publish-Docker-Github-Action@master
+        with:
+          name: ${{github.repository}}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          tags: "${{ github.sha }}, latest"

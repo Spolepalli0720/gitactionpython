@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scrapers-config
+data:
+  SCRAPERS_DB_URL: mongodb://ddadmin:pa88w0rd@mongodb:27017/?authSource=admin
+  SCRAPERS_MONGODB_DATABASE: scraper 
+  SCRAPERS_REDIS_HOST: redis
+  SCRAPERS_REDIS_PORT: "6379"
