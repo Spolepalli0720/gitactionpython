@@ -45,7 +45,7 @@ jobs:
         run: sonar-scanner
            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
            -Dsonar.host.url=https://sonar.bever.digitaldots.ai/
-           -Dsonar.projectKey=scrapers #sonar-scanner-action
+           -Dsonar.projectKey=gitactionpython #sonar-scanner-action
 
       # Since the project is python based project commented the mavenbased steps
       # javasetup for maven goals
